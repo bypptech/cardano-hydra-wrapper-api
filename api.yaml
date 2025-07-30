@@ -1,0 +1,672 @@
+openapi: 3.0.0
+info:
+  title: Cardano & Hydra Wrapper API
+  version: 0.1.0
+  description: API for managing escrow transactions on Cardano using Hydra L2 scaling solution
+  contact:
+    url: 'https://github.com/bypptech/cardano-hydra-wrapper-api'
+
+servers:
+  - url: http://localhost:6000
+    description: Development server
+
+components:
+  schemas:
+    CardanoAddress:
+      type: string
+      pattern: '^addr_test1[a-z0-9]+$'
+      description: Cardano testnet address
+      example: "addr_test1qp0x6s5h3cj8k3hg3q5d3j2n7v8m9c0b5a4f7e8d9g6h5j4k3l2m1n0"
+    
+    Lovelace:
+      type: integer
+      minimum: 1
+      description: Amount in lovelace (1 ADA = 1,000,000 lovelace)
+      example: 1000000
+    
+    EscrowStatus:
+      type: string
+      enum: [Idle, HeadIsInitializing, HeadIsOpen, HeadIsClosed, Committed, TxValid, TxInvalid, SnapshotConfirmed, ReadyToFanout, FanoutPossible, Open, Closing, closed, failed]
+      description: Hydra head state and ESCROW transaction states
+    
+    SetupRequest:
+      type: object
+      properties: {}
+    
+    SetupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        state:
+          $ref: '#/components/schemas/EscrowStatus'
+        apiKey:
+          type: string
+          description: API Key for subsequent communication with API server
+        apiKeyExpiration:
+          type: string
+          format: date-time
+          description: API Key expiration date and time
+        escrowL1Address:
+          $ref: '#/components/schemas/CardanoAddress'
+          description: L1 Alice Escrow wallet address
+        balance:
+          type: object
+          properties:
+            ada:
+              type: number
+              description: Balance in ADA
+            lovelace:
+              type: integer
+              description: Balance in lovelace
+          description: Alice L1 ESCROW wallet balance
+        timestamp:
+          type: string
+          format: date-time
+          description: Current timestamp
+    
+    EscrowStartRequest:
+      type: object
+      required:
+        - apiKey
+      properties:
+        apiKey:
+          type: string
+          description: API Key for authentication
+    
+    PaymentRequest:
+      type: object
+      required:
+        - apiKey
+        - amount
+      properties:
+        apiKey:
+          type: string
+          description: API Key for authentication
+        amount:
+          $ref: '#/components/schemas/Lovelace'
+    
+    WithdrawalRequest:
+      type: object
+      required:
+        - apiKey
+        - amount
+        - to
+      properties:
+        apiKey:
+          type: string
+          description: API Key for authentication
+        amount:
+          $ref: '#/components/schemas/Lovelace'
+        to:
+          $ref: '#/components/schemas/CardanoAddress'
+    
+    StatusRequest:
+      type: object
+      required:
+        - apiKey
+      properties:
+        apiKey:
+          type: string
+          description: API Key for authentication
+    
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: string
+
+paths:
+  /:
+    get:
+      summary: API server status check
+      tags:
+        - Status
+      responses:
+        '200':
+          description: API server status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cardano Hydra Escrow API Server"
+                  status:
+                    type: string
+                    example: "running"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /setup:
+    post:
+      summary: Setup ESCROW environment
+      tags:
+        - Setup
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupRequest'
+      responses:
+        '201':
+          description: ESCROW setup initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /start:
+    post:
+      summary: Start ESCROW transaction
+      tags:
+        - Escrow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscrowStartRequest'
+      responses:
+        '201':
+          description: ESCROW transaction started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Processing result message
+                  state:
+                    $ref: '#/components/schemas/EscrowStatus'
+                    description: ESCROW transaction status
+                  escrowId:
+                    type: string
+                    description: Escrow transaction ID
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Processing completion time
+        '400':
+          description: Bad Request - Missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error - Hydra process failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                    enum: [failed]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /status:
+    post:
+      summary: Get ESCROW transaction status
+      tags:
+        - Escrow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: ESCROW status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  state:
+                    $ref: '#/components/schemas/EscrowStatus'
+                  apiKeyExpiration:
+                    type: string
+                    format: date-time
+                    description: API Key expiration date and time
+                  escrowL1Address:
+                    $ref: '#/components/schemas/CardanoAddress'
+                    description: L1 Alice Escrow wallet address
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: ESCROW L1 address balance
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current timestamp
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /balance:
+    post:
+      summary: Get Bob L1 ESCROW wallet balance
+      tags:
+        - Wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: Bob L1 ESCROW balance retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  state:
+                    $ref: '#/components/schemas/EscrowStatus'
+                  apiKeyExpiration:
+                    type: string
+                    format: date-time
+                    description: API Key expiration date and time
+                  escrowL1Address:
+                    $ref: '#/components/schemas/CardanoAddress'
+                    description: Bob L1 ESCROW wallet address
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Bob L1 ESCROW wallet balance
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current timestamp
+        '400':
+          description: Bad Request - Missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /balancel2:
+    post:
+      summary: Get Bob L2 ESCROW wallet balance
+      tags:
+        - Wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: Bob L2 ESCROW balance retrieved (only when Hydra Head is open)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  state:
+                    $ref: '#/components/schemas/EscrowStatus'
+                  apiKeyExpiration:
+                    type: string
+                    format: date-time
+                    description: API Key expiration date and time
+                  escrowL1Address:
+                    $ref: '#/components/schemas/CardanoAddress'
+                    description: Bob L2 ESCROW wallet address (same as L1)
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Bob L2 ESCROW wallet balance (available only when HeadIsOpen)
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current timestamp
+        '400':
+          description: Bad Request - Missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /payment:
+    post:
+      summary: Setup L2 payment between ESCROW wallets
+      tags:
+        - Payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201':
+          description: L2 payment processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, confirmed, failed]
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Alice's ESCROW wallet balance
+
+
+  /close:
+    post:
+      summary: Close ESCROW transaction and finalize L2 settlement
+      tags:
+        - Escrow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+                  description: API Key for authentication
+      responses:
+        '200':
+          description: ESCROW closing initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                    enum: [closing, closed, failed]
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Processing start time
+
+  /withdrawal:
+    post:
+      summary: Withdraw from Bob L1 ESCROW wallet to specified address
+      tags:
+        - Wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Bob ESCROW L1 Wallet balance after transfer completion
+        '400':
+          description: Bad Request - Missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Hydra Head is open
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error - Withdrawal failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Bob ESCROW L1 Wallet balance at time of error
+
+  /refund:
+    post:
+      summary: Refund from Alice L1 ESCROW wallet to specified address
+      tags:
+        - Wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+                - amount
+                - to
+              properties:
+                apiKey:
+                  type: string
+                  description: API Key for authentication
+                amount:
+                  $ref: '#/components/schemas/Lovelace'
+                to:
+                  $ref: '#/components/schemas/CardanoAddress'
+      responses:
+        '200':
+          description: Refund completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Alice ESCROW L1 Wallet balance after transfer completion
+        '400':
+          description: Bad Request - Missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid API Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Hydra Head is open
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error - Refund failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  balance:
+                    type: object
+                    properties:
+                      ada:
+                        type: number
+                        format: float
+                      lovelace:
+                        $ref: '#/components/schemas/Lovelace'
+                    description: Alice ESCROW L1 Wallet balance at time of error
+
+  /abort:
+    post:
+      summary: Abort ESCROW transaction
+      tags:
+        - Escrow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+                  description: API Key for authentication
+      responses:
+        '200':
+          description: ESCROW transaction aborted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                    enum: [aborted, failed]
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Processing completion time
+
+
+tags:
+  - name: Status
+    description: API server status operations
+  - name: Setup
+    description: ESCROW environment setup operations
+  - name: Escrow
+    description: ESCROW transaction management
+  - name: Payment
+    description: L2 payment operations
+  - name: Wallet
+    description: Wallet and balance operations

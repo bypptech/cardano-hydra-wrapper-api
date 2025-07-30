@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydra Escrow API Test App</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #fafafa;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .balance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .balance-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .balance-card.l1 {
+            border-left: 4px solid #007bff;
+            background: #f8fbff;
+        }
+        .balance-card.l2 {
+            border-left: 4px solid #ffc107;
+            background: #fffef8;
+        }
+        .balance-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .balance-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) {
+            background-color: #1e7e34;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: black;
+        }
+        .btn-warning:hover:not(:disabled) {
+            background-color: #e0a800;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) {
+            background-color: #c82333;
+        }
+        .btn-purple {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .btn-purple:hover:not(:disabled) {
+            background-color: #5a359f;
+        }
+        .btn-cyan {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .btn-cyan:hover:not(:disabled) {
+            background-color: #138496;
+        }
+        .btn-brown {
+            background-color: #8d4925;
+            color: white;
+        }
+        .btn-brown:hover:not(:disabled) {
+            background-color: #6d371c;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-with-subtitle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.2;
+            padding: 12px 16px;
+        }
+        .btn-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn-subtitle {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 data-i18n="appTitle"></h1>
+            <div class="language-selector">
+                <span data-i18n="language"></span>:
+                <select class="btn btn-primary" id="langSelect" style="margin-left: 10px; padding: 8px 15px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer;">
+                    <option value="ja" style="background-color: white; color: black;">日本語</option>
+                    <option value="en" style="background-color: white; color: black;">English</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- API Configuration Section -->
+        <div class="section">
+            <h3 data-i18n="apiConfig"></h3>
+            <div class="controls">
+                <div class="input-group">
+                    <label for="apiBaseUrl" data-i18n="apiBaseUrl"></label>
+                    <input type="url" id="apiBaseUrl" value="https://oneshot-test-api-5d9d33d.bypp.tech" style="width: 300px;">
+                    <button class="btn btn-primary" id="updateUrlBtn" data-i18n="updateUrl"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Setup Section -->
+        <div class="section">
+            <h3 data-i18n="setupStart"></h3>
+            <div class="controls">
+                <button class="btn btn-primary btn-with-subtitle" id="setupBtn">
+                    <span class="btn-title" data-i18n="setupButton"></span>
+                    <span class="btn-subtitle">/setup</span>
+                </button>
+                <button class="btn btn-success btn-with-subtitle" id="startBtn">
+                    <span class="btn-title" data-i18n="startButton"></span>
+                    <span class="btn-subtitle">/start</span>
+                </button>
+                <button class="btn btn-purple btn-with-subtitle" id="closeBtn">
+                    <span class="btn-title" data-i18n="closeTransaction"></span>
+                    <span class="btn-subtitle">/close</span>
+                </button>
+                <button class="btn btn-danger btn-with-subtitle" id="abortBtn">
+                    <span class="btn-title" data-i18n="abortTransaction"></span>
+                    <span class="btn-subtitle">/abort</span>
+                </button>
+                <button class="btn btn-cyan btn-with-subtitle" id="refreshBtn">
+                    <span class="btn-title" data-i18n="refreshBalance"></span>
+                    <span class="btn-subtitle">/status</span>
+                </button>
+                <button class="btn btn-brown btn-with-subtitle" id="getServerStateBtn">
+                    <span class="btn-title" data-i18n="getServerState"></span>
+                    <span class="btn-subtitle">/status</span>
+                </button>
+            </div>
+            
+            <!-- L2 Payment Controls (integrated into API Operations) -->
+            <div class="controls" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+                <div class="input-group">
+                    <label for="paymentAmount" data-i18n="paymentAmount"></label>
+                    <input type="number" id="paymentAmount" data-i18n-placeholder="placeholderPaymentAmount" placeholder="1000000" min="1" value="1000000">
+                    <button class="btn btn-warning btn-with-subtitle" id="paymentBtn">
+                        <span class="btn-title" data-i18n="executePayment"></span>
+                        <span class="btn-subtitle">/payment</span>
+                    </button>
+                </div>
+            </div>
+            <div class="status-display" style="margin-bottom: 15px;">
+                <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 4px solid #007bff;">
+                    <strong data-i18n="serverState"></strong>
+                    <span id="serverStateDisplay" style="margin-left: 10px; font-weight: bold; color: #007bff;">--</span>
+                    <div id="stateDescription" style="margin-top: 8px; font-size: 12px; color: #666; line-height: 1.4;"></div>
+                </div>
+            </div>
+            <div id="setupStatus"></div>
+        </div>
+
+        <!-- Balance Display Section -->
+        <div class="section">
+            <h3 data-i18n="walletBalance"></h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <!-- Alice Column (Left) -->
+                <div class="alice-section">
+                    <h4 style="text-align: center; color: #007bff; margin-bottom: 20px;">👩‍💼 Alice</h4>
+                    <div class="balance-card l1">
+                        <h4 data-i18n="aliceL1Balance"></h4>
+                        <div class="balance-value" id="aliceL1Balance">-- ADA</div>
+                        <small id="aliceL1Address">Address: --</small>
+                    </div>
+                    <div class="balance-card l2" style="margin-top: 15px;">
+                        <h4 data-i18n="aliceL2Balance"></h4>
+                        <div class="balance-value" id="aliceL2Balance">-- ADA</div>
+                        <small id="aliceL2Address">Address: --</small>
+                    </div>
+                </div>
+                
+                <!-- Bob Column (Right) -->
+                <div class="bob-section">
+                    <h4 style="text-align: center; color: #28a745; margin-bottom: 20px;">👨‍💼 Bob</h4>
+                    <div class="balance-card l1">
+                        <h4 data-i18n="bobL1Balance"></h4>
+                        <div class="balance-value" id="bobL1Balance">-- ADA</div>
+                        <small id="bobL1Address">Address: --</small>
+                    </div>
+                    <div class="balance-card l2" style="margin-top: 15px;">
+                        <h4 data-i18n="bobL2Balance"></h4>
+                        <div class="balance-value" id="bobL2Balance">-- ADA</div>
+                        <small id="bobL2Address">Address: --</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Log Section -->
+        <div class="section">
+            <h3 data-i18n="log"></h3>
+            <button class="btn btn-primary" onclick="clearLog()" style="margin-bottom: 10px;" data-i18n="clearLog"></button>
+            <div class="log" id="logOutput"></div>
+        </div>
+
+        <!-- Manual API Execution Section -->
+        <div class="section">
+            <h3 data-i18n="manualApiExecution"></h3>
+            <p data-i18n="manualApiDescription"></p>
+            
+            <div class="api-controls-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">
+                
+                <!-- /setup API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="setupApiManual"></h4>
+                    <button class="btn btn-primary" id="manualSetupBtn" data-i18n="executeSetup"></button>
+                </div>
+
+                <!-- /start API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="startApiManual"></h4>
+                    <button class="btn btn-primary" id="manualStartBtn" data-i18n="executeStart"></button>
+                </div>
+                
+                <!-- /status API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="statusApi"></h4>
+                    <button class="btn btn-primary" id="manualStatusBtn" data-i18n="executeStatus"></button>
+                </div>
+
+                <!-- /balance API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="balanceApi"></h4>
+                    <button class="btn btn-primary" id="manualBalanceBtn" data-i18n="executeBalance"></button>
+                </div>
+
+                <!-- /balancel2 API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="balancel2Api"></h4>
+                    <button class="btn btn-primary" id="manualBalanceL2Btn" data-i18n="executeBalanceL2"></button>
+                </div>
+
+                <!-- /payment API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="paymentApiManual"></h4>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label for="manualPaymentAmount" data-i18n="amount"></label>
+                        <input type="number" id="manualPaymentAmount" data-i18n-placeholder="placeholderPaymentAmount" placeholder="1000000" min="1" value="1000000" style="width: 120px;">
+                    </div>
+                    <button class="btn btn-primary" id="manualPaymentBtn" data-i18n="executePaymentManual"></button>
+                </div>
+
+                <!-- /close API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="closeApiManual"></h4>
+                    <button class="btn btn-primary" id="manualCloseBtn" data-i18n="executeClose"></button>
+                </div>
+
+                <!-- /abort API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="abortApiManual"></h4>
+                    <button class="btn btn-primary" id="manualAbortBtn" data-i18n="executeAbort"></button>
+                </div>
+
+                <!-- /withdrawal API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="withdrawalApiManual"></h4>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label for="withdrawalAmount" data-i18n="amount"></label>
+                        <input type="number" id="withdrawalAmount" data-i18n-placeholder="placeholderPaymentAmount" placeholder="1000000" min="1" value="1000000" style="width: 120px;">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label for="withdrawalAddress" data-i18n="toAddress"></label>
+                        <input type="text" id="withdrawalAddress" data-i18n-placeholder="placeholderWithdrawalAddress" placeholder="addr_test1..." style="width: 200px;">
+                    </div>
+                    <button class="btn btn-primary" id="manualWithdrawalBtn" data-i18n="executeWithdrawal"></button>
+                </div>
+
+                <!-- /refund API -->
+                <div class="api-control-item" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px;">
+                    <h4 data-i18n="refundApiManual"></h4>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label for="refundAmount" data-i18n="amount"></label>
+                        <input type="number" id="refundAmount" data-i18n-placeholder="placeholderPaymentAmount" placeholder="1000000" min="1" value="1000000" style="width: 120px;">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label for="refundAddress" data-i18n="toAddress"></label>
+                        <input type="text" id="refundAddress" data-i18n-placeholder="placeholderRefundAddress" placeholder="addr_test1..." style="width: 200px;">
+                    </div>
+                    <button class="btn btn-primary" id="manualRefundBtn" data-i18n="executeRefund"></button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/i18n.ts"></script>
+    <script type="module" src="/src/app.ts"></script>
+</body>
+</html>
