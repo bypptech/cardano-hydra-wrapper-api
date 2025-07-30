@@ -63,6 +63,3 @@ npm run dev
 ```
 ## Checking API Test App Operation
 Access http://localhost:5000 (default setting) from your browser.
-
-## API Specification
-[Cardano & Hydra Wrapper API (0.1.0)]()
